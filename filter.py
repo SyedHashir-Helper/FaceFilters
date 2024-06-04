@@ -10,8 +10,13 @@ lipsIndices = [
 ]
 
 leftEyeIndices = [
-    33, 133, 160, 158, 159, 157, 173, 153, 144, 163, 7, 246, 161, 160, 159, 
-    158, 157, 173, 153, 144, 163, 7, 246
+    33, 7, 163, 144, 145, 153, 154, 155, 133, 246, 
+    161, 160, 159, 158, 157, 173
+]
+
+RightEyeIndices = [
+    362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 
+    387, 388, 386, 385, 384, 398
 ]
 def empty(a):
     pass
@@ -43,6 +48,18 @@ def getPoints(points, indices):
         if i in indices:
             indPoints.append(points[i])
     return indPoints
+
+def applyFilters(original, img, color):
+
+    imgColor = np.zeros_like(img)
+    imgColor[:] = color[0],color[1],color[2]
+
+    imgColor = cv2.bitwise_and(img, imgColor)
+    imgColor = cv2.GaussianBlur(imgColor, (7,7), 10)
+    imgGray = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
+    imgGray = cv2.cvtColor(imgGray, cv2.COLOR_GRAY2BGR)
+    imgColor = cv2.addWeighted(imgGray, 1, imgColor, 0.4,0)
+    return imgColor
 
 mp_face_mesh = mp.solutions.face_mesh
 face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1, min_detection_confidence=0.5, refine_landmarks=True)
@@ -83,23 +100,39 @@ while True:
 
     # leftEye = createBoundingBox(img, np.array(getPoints(landmark_points, leftEyeIndices)))
     # cv2.imshow("LeftEye: ", leftEye)
-    lips = createBoundingBox(img, np.array(getPoints(landmark_points, lipsIndices)), masked=True, crop=False)
-
-    imgColorLips = np.zeros_like(lips)
-
     b = cv2.getTrackbarPos("Blue", "BGR")
     g = cv2.getTrackbarPos("Green", "BGR")
     r = cv2.getTrackbarPos("Red", "BGR")
-    imgColorLips[:] = b,g,r
-    imgColorLips = cv2.bitwise_and(lips, imgColorLips)
+    Mask = createBoundingBox(img, np.array(getPoints(landmark_points, leftEyeIndices)), masked=True, crop=False)
+    Mask_2 = createBoundingBox(img, np.array(getPoints(landmark_points, RightEyeIndices)), masked=True, crop=False)
+    Mask_3 = createBoundingBox(img, np.array(getPoints(landmark_points, lipsIndices)), masked=True, crop=False)
 
-    imgColorLips = cv2.GaussianBlur(imgColorLips, (7,7), 10)
-    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    imgGray = cv2.cvtColor(imgGray, cv2.COLOR_GRAY2BGR)
-    imgColorLips = cv2.addWeighted(imgGray, 1, imgColorLips, 0.4,0)
+    Masks = [Mask, Mask_2, Mask_3]
 
-    cv2.imshow("BGR", imgColorLips)
-    cv2.imshow("Lips: Mask ", lips)
+    combined_mask = Masks[0]
+
+    for i in range(1, len(Masks)):
+        combined_mask = cv2.bitwise_or(combined_mask, Masks[i])
+
+    BGR_img = applyFilters(img, combined_mask, (b,g,r))
+
+    # imgColorLips = np.zeros_like(lips)
+
+
+
+    # imgColorLips[:] = b,g,r
+    # imgColorLips = cv2.bitwise_and(lips, imgColorLips)
+
+    # imgColorLips = cv2.GaussianBlur(imgColorLips, (7,7), 10)
+    # imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # imgGray = cv2.cvtColor(imgGray, cv2.COLOR_GRAY2BGR)
+    # imgColorLips = cv2.addWeighted(imgGray, 1, imgColorLips, 0.4,0)
+
+    cv2.imshow("BGR", BGR_img)
+    cv2.imshow("Mask ", combined_mask)
     cv2.imshow('My Img', img)
     cv2.waitKey(1)
+
+
+
 
